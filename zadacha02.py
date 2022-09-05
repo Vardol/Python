@@ -4,7 +4,7 @@ matrix = [[False,False,False], [False,False,True], [False,True,False], [False,Tr
 boolValueLeft = False
 boolValueRight = False
 boolResult = True
-for i in range(0, 7) :
+for i in range(0, 8) :
     boolValueLeft = -(matrix[i][0] or matrix[i][1] or matrix[i][2])
     boolValueRight = -matrix[i][0] and -matrix[i][1] and -matrix[i][1]
     print(matrix[i], " - ", boolValueLeft == boolValueRight)
