@@ -32,9 +32,9 @@ def find_range_between_letters(input_string: str, input_char: str):
     if first_char_index == len(input_string) - 1 or first_char_index < 0: return (-1, -1)
 
     last_char_index = -1
-    for i in range(first_char_index + 1,len(input_string)):
-        if input_string[i] == input_char[0]:
-            last_char_index = i
+    for i in range(0, len(input_string) - first_char_index - 1,):
+        if input_string[len(input_string) - 1 - i] == input_char[0]:
+            last_char_index = len(input_string) - 1 - i
             break
 
     if last_char_index < 0: return (-1, -1)
