@@ -15,9 +15,10 @@ def print_map(input_array: list):
 
 def print_field(comp_map: list, player_map: list):
     print_map(comp_map)
-    print("\n ----------------------------------------------------------------------- \n")
+    print("СВЕРХУ МОЕ ПОЛЕ\n ----------------------------------------------------------------------- \nСНИЗУ - ТВОЕ ПОЛЕ")
     print_map(player_map)
 
+#проверяет соответствие переданной строки шаблону координат: 2 знака, из которых 1 - цифра, другой - англ буква от A до J
 def check_coordinates_validity(coordinates_str: str, letters_vocabulary = "ABCDEFGHIJabcdefghij"):
     digits = "0123456789"
     if len(coordinates_str) != 2: return False
@@ -30,12 +31,13 @@ def check_coordinates_validity(coordinates_str: str, letters_vocabulary = "ABCDE
         else: return True
     return False
 
+#считывает координаты с проверкой шаблона
 def read_coordinates(prompting_msg = "Введи координаты - ", err_msg = "некорректные координаты"):
     horisontal_placement = "ABCDEFGHIJ"
-    coordinates_str = str(input(prompting_msg))
+    coordinates_str = check_quit(str(input(prompting_msg)))
     while not check_coordinates_validity(coordinates_str):
         print(err_msg)
-        coordinates_str = str(input(prompting_msg))
+        coordinates_str = check_quit(str(input(prompting_msg)))
     coordinates_str = coordinates_str.upper()
     if coordinates_str[0].isdigit():
         position = (int(coordinates_str[0]),horisontal_placement.find(coordinates_str[1]))
@@ -43,47 +45,51 @@ def read_coordinates(prompting_msg = "Введи координаты - ", err_m
         position = (int(coordinates_str[1]),horisontal_placement.find(coordinates_str[0]))
     return position
 
+#считывает направвление, с учетом шаблона
 def read_direction(prompting_msg = "Введи направление корабля - ", err_msg = "некорректное направление (up/down/left/right)", directions_vocabulary = "updownleftrightUPDOWNLEFTRIGHT"):
-    direction = input(prompting_msg)
+    direction = check_quit(str(input(prompting_msg)))
     while directions_vocabulary.find(direction) == -1:
         print(err_msg)
-        direction = input(prompting_msg)
+        direction = check_quit(str(input(prompting_msg)))
     return direction.lower()
 
-#проверка допустимости расположения корабля. TODO: добавить проверку на соседние корабли
-def check_placement(start_pos: tuple, size: int, direction: str, map: list):
+#проверка допустимости расположения корабля.
+def check_ship_placement(start_pos: tuple, size: int, direction: str, map: list):
+    check_zone = [(-1,-1),(-1,-1)]
+    #check_zone - левая верхняя и правая нижняя точка прямоугольника, который надо проверить на пересечения с др кораблями, сложенные в лист кортежей
+    #check_zone формируется как плюс 1 клетка в каждую стоорону, либо край карты
+
+    #сначала проверяем влезает ли сам корабль просто по размеру до края доски и если влезет - формируем для него зону проверки
     if direction == "up":
-        if start_pos[0]+1 < size:
-            return False
-        else:
-            for i in range(0, size):
-                if map[start_pos[0]-i][start_pos[1]] != "   ": return False
-        #check_zone = [(max(0,start_pos[0] - size),max(0,start_pos[1] - 1)),(min(len(map),start_pos[0] + 1),min(len(map),start_pos[1] + 1))]
-        return True
+        if start_pos[0]+1 < size: return False
+        check_zone = [(max(0,start_pos[0] - size),max(0,start_pos[1] - 1)),(min(len(map) - 1,start_pos[0] + 1),min(len(map) - 1,start_pos[1] + 1))]
     elif direction == "down":
         if len(map)-start_pos[0] < size: return False
-        else:
-            for i in range(0, size):
-                if map[start_pos[0]+i][start_pos[1]] != "   ": return False
-        return True
+        check_zone = [(max(0,start_pos[0] - 1),max(0,start_pos[1] - 1)),(min(len(map) - 1,start_pos[0] + size),min(len(map) - 1,start_pos[1] + 1))]
     elif direction == "right":
         if len(map[start_pos[0]])-start_pos[1] < size: return False
-        else:
-            for i in range(0, size):
-                if map[start_pos[0]][start_pos[1]+i] != "   ": return False
-        return True
+        check_zone = [(max(0,start_pos[0] - 1),max(0,start_pos[1] - 1)),(min(len(map) - 1,start_pos[0] + 1),min(len(map) - 1,start_pos[1] + size))]
     elif direction == "left":
         if start_pos[1] + 1 < size: return False
-        else:
-            for i in range(0, size):
-                if map[start_pos[0]][start_pos[1]-i] != "   ": return False
+        check_zone = [(max(0,start_pos[0] - 1),max(0,start_pos[1] - size)),(min(len(map) - 1,start_pos[0] + 1),min(len(map) - 1,start_pos[1] + 1))]
+    else: return False #Если вдруг сюда прокралось некорректное указание направления - возвращаем Ложь
+
+    #теперь собственно проверяем check_zone на отсутствие пересечений с другими кораблями, если она была сформирована
+    if check_zone[0][0] != -1:
+        for i in range(check_zone[0][0],check_zone[1][0]+1):
+            for j in range(check_zone[0][1],check_zone[1][1]+1):
+                if map[i][j] != "   ": return False
         return True
     else: return False
 
+#проверяем все вводы строк на выражение волеизъявления пользователя прекратить игру
+def check_quit(input_str: str):
+    if input_str.find("quit") != -1 or input_str.find("exit") != -1: exit()
+    else: return input_str
 
-#просто ставит корабль с заданными параметрами, по заданным координатам
+#ставит корабль с заданным размером, по заданным координатам и направлению
 def place_ship(start_pos: tuple, size: int, direction: str, map: list):
-    if not check_placement(start_pos, size, direction, map): return map
+    if not check_ship_placement(start_pos, size, direction, map): return map
     else:
         if direction == "up":
             for i in range(0, size):
@@ -103,20 +109,20 @@ def place_ship(start_pos: tuple, size: int, direction: str, map: list):
             return map
 
 
-#ставит корабль заданного размера в случайной позиции
+#ставит заданное количество кораблей заданного размера в случайных координатах
 def place_random_ship_Xtimes(size: int, number_of_ships: int, map: list):
     import random
     directions = ["up", "down", "left", "right"]
     for i in range(0, number_of_ships):
         start_pos = (random.randint(0,9),random.randint(0,9))
         direction = directions[random.randint(0,3)]
-        while not check_placement(start_pos, size, direction, map):
+        while not check_ship_placement(start_pos, size, direction, map):
             start_pos = (random.randint(0,9),random.randint(0,9))
             direction = directions[random.randint(0,3)]
         map = place_ship(start_pos, size, direction, map)
     return map
 
-#выставляет стандартный набор кораблей в случайных местах
+#выставляет стандартный набор кораблей (1 трехпалубник, 2 двухпалубника, 3 буйка) в случайных местах полученной карты
 def place_standart_ships(map: list):
     map = place_random_ship_Xtimes(1, 3, map)
     map = place_random_ship_Xtimes(2, 2, map)
@@ -131,21 +137,21 @@ def check_defeat(map: list):
     return True
 
 
+#!!!собственно тело программы начинается здесь!!!
 
-
-
+#делаем 3 поля: 1 - компа (сразу его наполяем стандартными кораблями), 1 - игрока, 1 - отмечать выстрелы игрока
 player_map = create_2d_array_by_sample(10,10, "   ")
 comp_map = create_2d_array_by_sample(10,10, "   ")
 shot_map = create_2d_array_by_sample(10,10, "   ")
 comp_map = place_standart_ships(comp_map)
 
-
+print("\nМорской Бой v1.0. Для выхода введите exit или quit.\n\n")
 print("Привет! Как тебя зовут?")
-player_name = input()
+player_name = check_quit(input())
 print(player_name + ", сыграем в морской бой? Y/N ")
-if (input()) not in ["Да", "да", "ДА", "дА", "yes", "Yes", "YES", "YEs", "YeS", "yeS", "yES", "Y", "y", "давай", "Давай"]:
-    print("Ну тогда до скорого, " + player_name + "!")
-    exit
+if (input().upper()) not in ["ДА", "YES", "Y", "ДАВАЙ"]:
+    print("Ну тогда до скорого, трусишка " + player_name + "!")
+    exit()
 print("Вот твое поле, " + player_name + ". Расставляй корабли (я не буду подсматривать, честно!)")
 print_map(player_map)
 print("Вводи два знака: букву (A - J) и цифру (0 - 9)")
@@ -154,7 +160,7 @@ horisontal_placement = "ABCDEFGHIJ"
 #расставляем однопалубники
 for i in range(0,3):
     start_pos = read_coordinates("Вводи координаты однопалубника - ")
-    while not check_placement(start_pos, 1, "up", player_map):
+    while not check_ship_placement(start_pos, 1, "up", player_map):
         print("некорректное расположение корабля")
         start_pos = read_coordinates("Вводи координаты трехпалубника - ")
     player_map = place_ship(start_pos, 1, "up", player_map)
@@ -164,7 +170,7 @@ for i in range(0,3):
 for i in range(0,2):
     start_pos = read_coordinates("Вводи координаты двухпалубника - ")
     direction = read_direction()
-    while not check_placement(start_pos, 2, direction, player_map):
+    while not check_ship_placement(start_pos, 2, direction, player_map):
         print("некорректное расположение корабля")
         start_pos = read_coordinates("Вводи координаты трехпалубника - ")
         direction = read_direction()
@@ -174,45 +180,53 @@ for i in range(0,2):
 #ставим 1 трехпалубник
 start_pos = read_coordinates("Вводи координаты трехпалубника - ")
 direction = read_direction()
-while not check_placement(start_pos, 3, direction, player_map):
+while not check_ship_placement(start_pos, 3, direction, player_map):
     print("некорректное расположение корабля")
     start_pos = read_coordinates("Вводи координаты трехпалубника - ")
     direction = read_direction()
 
 player_map = place_ship(start_pos, 3, direction, player_map)
 print_map(player_map)
-
-
 print("Корабли расставлены. К Бою!")
+
+#флаги для контроля течения и завершения игры
 comp_win = False
 player_win = False
-player_turn = True                                                 #TODO: comp logic to finish off previously hit ships
+player_turn = True #игрок ходит первым
+
+#список действий для компа. реализация - ниже                   #TODO: comp logic to finish off previously hit ships
 decision_list = {"first_diag": False, "second_diag": False, "finishing meal": (-1,-1), "cheating bastard": False}
                                                                 #TODO: cheating comp logic, where comp finds player's ships
 turns_counter = 1
+
+#цикл самой игры идет, пока никто не выиграл
 while comp_win == False and player_win == False:
     print("Ход №" + str(turns_counter))
     print_field(shot_map, player_map)
     while player_turn:
         player_turn = False
+
+        #считываем с игрока координаты выстрела, отмечаем его на двух картах (компа и выстрелов)
         shot_pos  = read_coordinates("Твой выстрел - ")
         if comp_map[shot_pos[0]][shot_pos[1]] == " O ":
-            print("Попал!")
+            print("Попал!")                             #TODO:ввести дифференциированный ответ "РАНИЛ"/"УБИЛ" через check_zone
             comp_map[shot_pos[0]][shot_pos[1]] = " 8 "
             shot_map[shot_pos[0]][shot_pos[1]] = " 8 "
-            player_turn = True
+            player_turn = True # если попал - снова стреляешь
         elif comp_map[shot_pos[0]][shot_pos[1]] == "   ":
             print("Мимо!")
             comp_map[shot_pos[0]][shot_pos[1]] = " X "
             shot_map[shot_pos[0]][shot_pos[1]] = " X "
         print_field(shot_map, player_map)
 
+        #проверяем, на случай, если этим залпом был подбит последний корабль компа
         if check_defeat(comp_map):
             player_win = True
             break
 
     while not player_turn:
         player_turn = True
+        #Перебираем доступные нам логики в заданном порядке
 
         #Логика простреливания первой диагонали
         if not decision_list["first_diag"]:
