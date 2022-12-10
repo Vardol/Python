@@ -46,7 +46,7 @@ def read_coordinates(prompting_msg = "Введи координаты - ", err_m
     return position
 
 #считывает направвление, с учетом шаблона
-def read_direction(prompting_msg = "Введи направление корабля - ", err_msg = "некорректное направление (up/down/left/right)", directions_vocabulary = "updownleftrightUPDOWNLEFTRIGHT"):
+def read_direction(prompting_msg = "Введи направление корабля (up/down/left/right) - ", err_msg = "некорректное направление (up/down/left/right)", directions_vocabulary = "updownleftrightUPDOWNLEFTRIGHT"):
     direction = check_quit(str(input(prompting_msg)))
     while directions_vocabulary.find(direction) == -1:
         print(err_msg)
@@ -129,6 +129,58 @@ def place_standart_ships(map: list):
     map = place_random_ship_Xtimes(3, 1, map)
     return map
 
+def find_ship_check_zone(start_pos: tuple, map: list):
+    ship_check_zone = [[max(start_pos[0]-1, 0),max(start_pos[1]-1, 0)],[min(start_pos[0]+1, len(map)-1),min(start_pos[1]+1, len(map)-1)]]
+    ship_check_zone_formed = False
+
+    while not ship_check_zone_formed:
+        ship_check_zone_formed = True
+
+        if start_pos[1] > 0:
+            for i in range(ship_check_zone[0][0],ship_check_zone[1][0]+1):
+                if map[i][ship_check_zone[0][1]] in [" O ", " 8 "] and ship_check_zone[0][1] > 0:
+                    ship_check_zone_formed = False
+                    ship_check_zone[0][1] -= 1
+
+        if start_pos[1] < len(map)-1:
+            for i in range(ship_check_zone[0][0],ship_check_zone[1][0]+1):
+                if map[i][ship_check_zone[1][1]] in [" O ", " 8 "] and ship_check_zone[1][1] < len(map)-1:
+                    ship_check_zone_formed = False
+                    ship_check_zone[1][1] += 1
+
+        if start_pos[0] > 0:
+            for i in range(ship_check_zone[0][1],ship_check_zone[1][1]+1):
+                if map[ship_check_zone[0][0]][i] in [" O ", " 8 "] and ship_check_zone[0][0] > 0:
+                    ship_check_zone_formed = False
+                    ship_check_zone[0][0] -= 1
+
+        if start_pos[0] < len(map)-1:
+            for i in range(ship_check_zone[0][1],ship_check_zone[1][1]+1):
+                if map[ship_check_zone[1][0]][i] in [" O ", " 8 "] and ship_check_zone[1][0] < len(map)-1:
+                    ship_check_zone_formed = False
+                    ship_check_zone[1][0] += 1
+
+    return [(ship_check_zone[0][0],ship_check_zone[0][1]),(ship_check_zone[1][0],ship_check_zone[1][1])]
+
+
+def check_ship_sunk(map: list, ship_check_zone = [(-1,-1),(-1,-1)]):
+    if ship_check_zone[0][0] != -1:
+        for i in range(ship_check_zone[0][0],ship_check_zone[1][0]+1):
+            for j in range(ship_check_zone[0][1],ship_check_zone[1][1]+1):
+                if map[i][j] == " O ": return False
+        return True
+    else: return False
+
+
+def mark_sunk_ship_zone(map: list, ship_check_zone = [(-1,-1),(-1,-1)], sample = " X "):
+    if ship_check_zone[0][0] != -1:
+        for i in range(ship_check_zone[0][0],ship_check_zone[1][0]+1):
+            for j in range(ship_check_zone[0][1],ship_check_zone[1][1]+1):
+                if map[i][j] != " 8 ": map[i][j] = sample
+    return map
+
+
+
 #проверяет все ли корабли подбиты на карте
 def check_defeat(map: list):
     for i in range(0,len(map)):
@@ -145,7 +197,7 @@ comp_map = create_2d_array_by_sample(10,10, "   ")
 shot_map = create_2d_array_by_sample(10,10, "   ")
 comp_map = place_standart_ships(comp_map)
 
-print("\nМорской Бой v1.0. Для выхода введите exit или quit.\n\n")
+print("\nМорской Бой v1.1. Для выхода введите exit или quit.\n\n")
 print("Привет! Как тебя зовут?")
 player_name = check_quit(input())
 print(player_name + ", сыграем в морской бой? Y/N ")
@@ -194,8 +246,8 @@ comp_win = False
 player_win = False
 player_turn = True #игрок ходит первым
 
-#список действий для компа. реализация - ниже                   #TODO: comp logic to finish off previously hit ships
-decision_list = {"first_diag": False, "second_diag": False, "finishing meal": (-1,-1), "cheating bastard": False}
+#список действий для компа. реализация - ниже
+decision_list = {"first_diag": False, "second_diag": False, "finishing meal": (-1,-1), "chess_order": False, "cheating bastard": False}
                                                                 #TODO: cheating comp logic, where comp finds player's ships
 turns_counter = 1
 
@@ -209,15 +261,25 @@ while comp_win == False and player_win == False:
         #считываем с игрока координаты выстрела, отмечаем его на двух картах (компа и выстрелов)
         shot_pos  = read_coordinates("Твой выстрел - ")
         if comp_map[shot_pos[0]][shot_pos[1]] == " O ":
-            print("Попал!")                             #TODO:ввести дифференциированный ответ "РАНИЛ"/"УБИЛ" через check_zone
             comp_map[shot_pos[0]][shot_pos[1]] = " 8 "
             shot_map[shot_pos[0]][shot_pos[1]] = " 8 "
             player_turn = True # если попал - снова стреляешь
+            if check_ship_sunk(comp_map,find_ship_check_zone(shot_pos,comp_map)):
+                shot_map = mark_sunk_ship_zone(shot_map, find_ship_check_zone(shot_pos,comp_map))
+                comp_map = mark_sunk_ship_zone(comp_map, find_ship_check_zone(shot_pos,comp_map))
+                print_field(shot_map, player_map)
+                print("Ты потопил мой корабль!")
+            else:
+                print_field(shot_map, player_map)
+                print("Ты ранил мой корабль!")
         elif comp_map[shot_pos[0]][shot_pos[1]] == "   ":
-            print("Мимо!")
             comp_map[shot_pos[0]][shot_pos[1]] = " X "
             shot_map[shot_pos[0]][shot_pos[1]] = " X "
-        print_field(shot_map, player_map)
+            print_field(shot_map, player_map)
+            print("Ты промахнулся!")
+        else:
+            print_field(shot_map, player_map)
+            print("Мимо!")
 
         #проверяем, на случай, если этим залпом был подбит последний корабль компа
         if check_defeat(comp_map):
@@ -228,8 +290,152 @@ while comp_win == False and player_win == False:
         player_turn = True
         #Перебираем доступные нам логики в заданном порядке
 
+        #Логика добивания ранненого корабля
+        if decision_list["finishing meal"][0] != -1:
+            print("добиваем" + str(decision_list["finishing meal"]))
+            placed_shot = False
+            
+            #проверяем на трехпалубник сверху (т.е. ситуация в которой были два соседних попадания, а корабль не убит)
+            if (
+                decision_list["finishing meal"][0] > 0 
+                and player_map[decision_list["finishing meal"][0] - 1][decision_list["finishing meal"][1]] == " 8 "
+                and not placed_shot
+                ):
+                    if (
+                        decision_list["finishing meal"][0] - 1 > 0
+                        and player_map[decision_list["finishing meal"][0] - 2][decision_list["finishing meal"][1]] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0] - 2, decision_list["finishing meal"][1])
+                        placed_shot = True
+                    elif (
+                        decision_list["finishing meal"][0] < len(player_map) - 1
+                        and player_map[decision_list["finishing meal"][0] + 1][decision_list["finishing meal"][1]] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0] + 1, decision_list["finishing meal"][1])
+                        placed_shot = True
+
+            # проверяем трехпалубник снизу
+            if (
+                decision_list["finishing meal"][0] < len(player_map) - 1 
+                and player_map[decision_list["finishing meal"][0] + 1][decision_list["finishing meal"][1]] == " 8 "
+                and not placed_shot
+                ):
+                    if (
+                        decision_list["finishing meal"][0] > 0
+                        and player_map[decision_list["finishing meal"][0] - 1][decision_list["finishing meal"][1]] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0] - 1, decision_list["finishing meal"][1])
+                        placed_shot = True
+                    elif (
+                        decision_list["finishing meal"][0] < len(player_map) - 2
+                        and player_map[decision_list["finishing meal"][0] + 2][decision_list["finishing meal"][1]] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0] + 2, decision_list["finishing meal"][1])
+                        placed_shot = True
+
+            # проверяем трехпалубник слева
+            if (
+                decision_list["finishing meal"][1] > 0 
+                and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 1] == " 8 "
+                and not placed_shot
+                ):
+                    if (
+                        decision_list["finishing meal"][0] - 1 > 0
+                        and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 2] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0], decision_list["finishing meal"][1] - 2)
+                        placed_shot = True
+                    elif (
+                        decision_list["finishing meal"][1] < len(player_map) - 1
+                        and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 1] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0], decision_list["finishing meal"][1] + 1)
+                        placed_shot = True
+
+            # проверяем трехпалубник справа
+            if (
+                decision_list["finishing meal"][1] < len(player_map) - 1 
+                and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 1] == " 8 "
+                and not placed_shot
+                ):
+                    if (
+                        decision_list["finishing meal"][1] > 0
+                        and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 1] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0], decision_list["finishing meal"][1] - 1)
+                        placed_shot = True
+                    elif (
+                        decision_list["finishing meal"][1] < len(player_map) - 2
+                        and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 2] in ["   ", " O "]
+                        ):
+                        shot_pos = (decision_list["finishing meal"][0], decision_list["finishing meal"][1] + 2)
+                        placed_shot = True
+
+
+            #пробуем вверх от ранения
+            if decision_list["finishing meal"][0] > 0 and not placed_shot:
+                print("ищем вверх")
+                if player_map[decision_list["finishing meal"][0] - 1][decision_list["finishing meal"][1]] in ["   ", " O "]:
+                    shot_pos = (decision_list["finishing meal"][0] - 1,decision_list["finishing meal"][1])
+                    placed_shot = True
+                elif (
+                    decision_list["finishing meal"][0] - 2 >= 0
+                    and player_map[decision_list["finishing meal"][0] - 1][decision_list["finishing meal"][1]] == " 8 " 
+                    and player_map[decision_list["finishing meal"][0] - 2][decision_list["finishing meal"][1]] in ["   ", " O "] 
+                    ):
+                        shot_pos = (decision_list["finishing meal"][0] - 2,decision_list["finishing meal"][1])
+                        placed_shot = True
+
+            #пробуем вниз от ранения
+            if decision_list["finishing meal"][0] < len(player_map) - 1 and not placed_shot:
+                print("ищем вниз")
+                if player_map[decision_list["finishing meal"][0] + 1][decision_list["finishing meal"][1]] in ["   ", " O "]:
+                    shot_pos = (decision_list["finishing meal"][0] + 1,decision_list["finishing meal"][1])
+                    placed_shot = True
+                elif (
+                    decision_list["finishing meal"][0] + 2 <= len(player_map) - 1
+                    and player_map[decision_list["finishing meal"][0] + 1][decision_list["finishing meal"][1]] == " 8 "
+                    and player_map[decision_list["finishing meal"][0] + 2][decision_list["finishing meal"][1]] in ["   ", " O "] 
+                    ):
+                        shot_pos = (decision_list["finishing meal"][0] + 2,decision_list["finishing meal"][1])
+                        placed_shot = True
+
+            #пробуем влево от ранения
+            if decision_list["finishing meal"][1] > 0 and not placed_shot:
+                print("ищем влево")
+                if player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 1] in ["   ", " O "]:
+                    shot_pos = (decision_list["finishing meal"][0],decision_list["finishing meal"][1] - 1)
+                    placed_shot = True
+                elif (
+                    decision_list["finishing meal"][1] - 2 >= 0
+                    and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 1] == " 8 " 
+                    and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] - 2] in ["   ", " O "]
+                    ):
+                    shot_pos = (decision_list["finishing meal"][0],decision_list["finishing meal"][1] - 2)
+                    placed_shot = True
+
+            #пробуем вправо от ранения
+            if decision_list["finishing meal"][1] < len(player_map) - 1 and not placed_shot:
+                print("ищем вправо")
+                if player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 1] in ["   ", " O "]:
+                    shot_pos = (decision_list["finishing meal"][0],decision_list["finishing meal"][1] + 1)
+                    placed_shot = True
+                elif (
+                    decision_list["finishing meal"][1] + 2 <= len(player_map) - 1
+                    and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 1] == " 8 " 
+                    and player_map[decision_list["finishing meal"][0]][decision_list["finishing meal"][1] + 2] in ["   ", " O "]
+                    ):
+                        shot_pos = (decision_list["finishing meal"][0],decision_list["finishing meal"][1] + 2)
+                        placed_shot = True
+
+            if not placed_shot:
+                print("не разместили выстрел")
+                decision_list["finishing meal"] = (-1,-1)
+                
+
+
         #Логика простреливания первой диагонали
-        if not decision_list["first_diag"]:
+        elif not decision_list["first_diag"]:
             for i in range(0,10):
                 if player_map[i][i] != " 8 " and player_map[i][i] != " X ":
                     shot_pos = (i,i)
@@ -246,6 +452,37 @@ while comp_win == False and player_win == False:
                         decision_list["second_diag"] = True
                     break
         
+        #Логика прострела в "шахматном" порядке
+        elif not decision_list["chess_order"]:
+            placed_shot = False
+            for i in range(0,10):
+                for j in range(0,10):
+                    if player_map[i][j] in [" O ", "   "]:
+                        unshot_surrounding_tiles_current = 0
+                        if i > 0 and player_map[i-1][j] in [" O ", "   "]: unshot_surrounding_tiles_current += 1
+                        if j > 0 and player_map[i][j-1] in [" O ", "   "]: unshot_surrounding_tiles_current += 1
+                        if i < len(player_map) - 1 and player_map[i+1][j] in [" O ", "   "]: unshot_surrounding_tiles_current += 1
+                        if j < len(player_map) - 1 and player_map[i][j+1] in [" O ", "   "]: unshot_surrounding_tiles_current += 1
+                        
+                        
+                        if j < len(player_map) - 1 and player_map[i][j+1] in [" O ", "   "]:
+                            next = j+1
+                            unshot_surrounding_tiles_next = 0
+                            if i > 0 and player_map[i-1][next] in [" O ", "   "]: unshot_surrounding_tiles_next += 1
+                            if next > 0 and player_map[i][next-1] in [" O ", "   "]: unshot_surrounding_tiles_next += 1
+                            if i < len(player_map) - 1 and player_map[i+1][next] in [" O ", "   "]: unshot_surrounding_tiles_next += 1
+                            if next < len(player_map) - 1 and player_map[i][next+1] in [" O ", "   "]: unshot_surrounding_tiles_next += 1
+                            if unshot_surrounding_tiles_next >= unshot_surrounding_tiles_current:
+                                j = next
+                                unshot_surrounding_tiles_current = unshot_surrounding_tiles_next
+
+                        if unshot_surrounding_tiles_current >= 2:
+                            shot_pos = (i,j)
+                            placed_shot = True
+                            break
+                if placed_shot: break
+            if not placed_shot: decision_list["chess_order"] = True
+
         #Логика прямого поочередного простреливания всего поля
         else:
             placed_shot = False
@@ -261,13 +498,24 @@ while comp_win == False and player_win == False:
         print(str(shot_pos[0]) + str(horisontal_placement[shot_pos[1]]))
 
         if player_map[shot_pos[0]][shot_pos[1]] == " O ":
-            print("Попал!")
             player_map[shot_pos[0]][shot_pos[1]] = " 8 "
             player_turn = False
+            if check_ship_sunk(player_map,find_ship_check_zone(shot_pos,player_map)):
+                player_map = mark_sunk_ship_zone(player_map, find_ship_check_zone(shot_pos,player_map))
+                decision_list["finishing meal"] = (-1,-1)
+                print_field(shot_map, player_map)
+                print("Я потопил твой корабль!")
+            else:
+                print_field(shot_map, player_map)
+                print("Я ранил твой корабль!")
+                decision_list["finishing meal"] = (shot_pos[0], shot_pos[1])
         elif player_map[shot_pos[0]][shot_pos[1]] == "   ":
-            print("Мимо!")
+            print_field(shot_map, player_map)
+            print("Я промахнулся!")
             player_map[shot_pos[0]][shot_pos[1]] = " X "
-        print_field(shot_map, player_map)
+        else:
+            print_field(shot_map, player_map)
+            print("Мимо")
         
         if check_defeat(player_map):
             comp_win = True
