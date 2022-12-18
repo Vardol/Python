@@ -1,5 +1,5 @@
 import core
-import utils
+import ui
 import dbi
 
 def set_username(name = "schedule"):
@@ -18,6 +18,7 @@ def initialize():
         print("Вы еще не заводили свое недельное расписания, " + username + ". Либо уже удалили его.")
         dbi.clear_schedule()
     else: print("С возвращением, " + username)
+    ui.print_data("Введите команду ? для получения инструкций.")
     core.schedulebot(username)
 
 
