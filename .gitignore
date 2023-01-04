@@ -6,6 +6,9 @@
 #credentials
 bot_creds.*
 
+# test
+test.py
+
 #logs
 *.txt
 *.log
