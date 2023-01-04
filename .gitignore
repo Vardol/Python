@@ -3,6 +3,13 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+#credentials
+bot_creds.py
+
+#logs
+*.txt
+*.log
+
 # video
 *.avi
 *.mpeg
